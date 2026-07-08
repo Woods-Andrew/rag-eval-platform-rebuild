@@ -1,0 +1,6 @@
+# Runtime + development dependencies for the current milestone.
+# Retrieval dependencies (rank-bm25, numpy, sentence-transformers, torch)
+# are added at the retrieval milestone, not before.
+
+pymupdf==1.28.0
+pytest==9.1.1

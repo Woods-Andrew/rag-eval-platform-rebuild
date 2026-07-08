@@ -1,0 +1,58 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# --- Tooling caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Environments ---
+.venv/
+venv/
+env/
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+
+# --- OS / editors ---
+.DS_Store
+.vscode/
+.idea/
+.ipynb_checkpoints/
+
+# --- Source documents (PDFs are not version controlled) ---
+data/documents/*
+!data/documents/.gitkeep
+
+# NOTE: data/evaluation/ is deliberately NOT ignored.
+# Benchmark questions and relevance labels are version-controlled artifacts.
+
+# --- Generated experiment output ---
+experiments/results/*
+!experiments/results/.gitkeep
+reports/
+
+# --- Indexes / embeddings / model artifacts ---
+*.faiss
+*.index
+*.npy
+*.npz
+data/indexes/
+data/embeddings/
+models/
+.cache/
+huggingface/
+transformers_cache/
+
+# --- Misc ---
+*.log
+tmp/
+temp/
