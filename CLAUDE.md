@@ -129,5 +129,5 @@ read-only reference. Do not modify, delete, reset, or copy source code from it.
 
 ## Current status
 
-Foundation only: packaging, environment, smoke tests. Next milestone is
-`feat: add PDF ingestion with page metadata`. See the roadmap in `README.md`.
+PDF ingestion lands pages with provenance (`src/rag_eval/ingestion/`). Next milestone is
+`feat: implement fixed-size document chunking`. See the roadmap in `README.md`.
