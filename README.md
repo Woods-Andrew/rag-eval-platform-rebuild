@@ -269,7 +269,7 @@ Directories appear as the milestones that need them land, rather than as empty s
 ## Roadmap
 
 - [x] Repository, packaging, and Python 3.11 environment
-- [ ] PDF ingestion with page metadata
+- [x] PDF ingestion with page metadata
 - [ ] Fixed-size and structure-aware chunking
 - [ ] BM25 lexical retrieval
 - [ ] Dense embedding retrieval
