@@ -129,5 +129,6 @@ read-only reference. Do not modify, delete, reset, or copy source code from it.
 
 ## Current status
 
-PDF ingestion lands pages with provenance (`src/rag_eval/ingestion/`). Next milestone is
-`feat: implement fixed-size document chunking`. See the roadmap in `README.md`.
+PDF ingestion lands pages with provenance (`src/rag_eval/ingestion/`), and fixed-size chunking
+turns those pages into `TextChunk`s (`src/rag_eval/chunking/`). Next milestone is
+`feat: implement structure-aware chunking`. See the roadmap in `README.md`.
