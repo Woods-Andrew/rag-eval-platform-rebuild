@@ -270,7 +270,8 @@ Directories appear as the milestones that need them land, rather than as empty s
 
 - [x] Repository, packaging, and Python 3.11 environment
 - [x] PDF ingestion with page metadata
-- [ ] Fixed-size and structure-aware chunking
+- [x] Fixed-size chunking with configurable overlap
+- [ ] Structure-aware chunking
 - [ ] BM25 lexical retrieval
 - [ ] Dense embedding retrieval
 - [ ] Reciprocal rank fusion + hybrid retriever
@@ -290,6 +291,8 @@ Known and accepted, to be revisited as the project matures:
   technical documents in general.
 - Relevance labels are binary and hand-authored by one person.
 - Text-only ingestion; tables and figures are not specially handled.
+- Chunks never span a page boundary, which keeps every citation unambiguous but splits any
+  passage that straddles a page break.
 - No approximate-nearest-neighbor index — exact search is correct and fast enough at this
   corpus size, and adding a vector database would obscure the mechanics this project exists to
   demonstrate.
