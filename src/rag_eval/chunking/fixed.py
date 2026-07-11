@@ -3,18 +3,53 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from ..ingestion import PDFPage
 from .models import TextChunk, chunk_id_for
 
-__all__ = ["FixedSizeChunker"]
+__all__ = ["FixedSizeChunker", "split_into_word_windows", "word_count"]
 
 DEFAULT_CHUNK_SIZE = 200
 DEFAULT_OVERLAP = 40
 
 _WORD = re.compile(r"\S+")
+
+
+def word_count(text: str) -> int:
+    """Words in ``text``, the unit every chunk size in this package is expressed in."""
+    return len(text.split())
+
+
+def split_into_word_windows(text: str, *, size: int, overlap: int = 0) -> list[str]:
+    """Slice ``text`` into windows of at most ``size`` words, overlapping by ``overlap``.
+
+    Windows are sliced out of ``text`` rather than rejoined from split words, so
+    whitespace and line structure inside a window survive verbatim. The final window is
+    whatever is left over; it is never emitted as a duplicate of its predecessor.
+
+    Returns an empty list for text with no words.
+    """
+    if size <= 0:
+        raise ValueError(f"size must be positive, got {size}")
+    if not 0 <= overlap < size:
+        raise ValueError(f"overlap must satisfy 0 <= overlap < size, got {overlap} of {size}")
+
+    spans = [match.span() for match in _WORD.finditer(text)]
+    if not spans:
+        return []
+
+    stride = size - overlap
+    windows: list[str] = []
+    start = 0
+    while start < len(spans):
+        end = min(start + size, len(spans))
+        windows.append(text[spans[start][0] : spans[end - 1][1]])
+        if end == len(spans):
+            break
+        start += stride
+    return windows
 
 
 @dataclass(frozen=True)
@@ -63,41 +98,17 @@ class FixedSizeChunker:
 
     def chunk_page(self, page: PDFPage) -> list[TextChunk]:
         """Chunk a single page. Returns an empty list for a page with no text."""
-        spans = [match.span() for match in _WORD.finditer(page.text)]
-        if not spans:
-            return []
-
-        return [
-            self._build_chunk(page, index, spans[start:end])
-            for index, (start, end) in enumerate(self._windows(len(spans)))
-        ]
-
-    def _windows(self, word_count: int) -> list[tuple[int, int]]:
-        """Half-open ``[start, end)`` word ranges covering ``word_count`` words.
-
-        The loop stops as soon as a window reaches the end of the page, so the tail is
-        never emitted twice as a shorter chunk fully contained in its predecessor.
-        """
-        windows: list[tuple[int, int]] = []
-        start = 0
-        while start < word_count:
-            end = min(start + self.chunk_size, word_count)
-            windows.append((start, end))
-            if end == word_count:
-                break
-            start += self.stride
-        return windows
-
-    def _build_chunk(
-        self, page: PDFPage, index: int, spans: Sequence[tuple[int, int]]
-    ) -> TextChunk:
-        """Slice the page's original text so intra-chunk formatting survives verbatim."""
-        text = page.text[spans[0][0] : spans[-1][1]]
-        return TextChunk(
-            chunk_id=chunk_id_for(page.source, page.page_number, index, text),
-            text=text,
-            source=page.source,
-            page_number=page.page_number,
-            chunk_index=index,
-            metadata=page.metadata,
+        windows = split_into_word_windows(
+            page.text, size=self.chunk_size, overlap=self.overlap
         )
+        return [
+            TextChunk(
+                chunk_id=chunk_id_for(page.source, page.page_number, index, text),
+                text=text,
+                source=page.source,
+                page_number=page.page_number,
+                chunk_index=index,
+                metadata=page.metadata,
+            )
+            for index, text in enumerate(windows)
+        ]
