@@ -32,6 +32,9 @@ class TextChunk:
     A chunk never spans pages, so ``page_number`` is a single unambiguous citation
     target. ``chunk_index`` is the chunk's 0-based ordinal *within its page*, which
     together with ``page_number`` gives a total ordering over the document.
+
+    ``section`` is the document heading the chunk was found under, when the chunking
+    strategy recovered one. Fixed-size chunking does not, so it stays ``None`` there.
     """
 
     chunk_id: str
@@ -39,6 +42,7 @@ class TextChunk:
     source: str
     page_number: int
     chunk_index: int
+    section: str | None = None
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -59,5 +63,6 @@ class TextChunk:
 
     @property
     def citation(self) -> str:
-        """Short human-readable provenance, e.g. ``paper.pdf p.3``."""
-        return f"{self.source} p.{self.page_number}"
+        """Short human-readable provenance, e.g. ``paper.pdf p.3 § Methods``."""
+        base = f"{self.source} p.{self.page_number}"
+        return f"{base} § {self.section}" if self.section else base
