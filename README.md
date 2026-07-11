@@ -19,6 +19,7 @@ relevance labels.
 
 - [Problem](#problem)
 - [Architecture](#architecture)
+- [Chunking strategies](#chunking-strategies)
 - [Retrieval methods](#retrieval-methods)
 - [Evaluation methodology](#evaluation-methodology)
 - [Benchmark dataset](#benchmark-dataset)
@@ -107,6 +108,34 @@ depends on the UI.
 The two pipelines share the retriever interface and nothing else. That separation is what
 makes it possible to swap a chunking strategy or a reranker and get a clean, comparable
 measurement out the other side.
+
+## Chunking strategies
+
+Chunking decides what the retriever is even allowed to return, so it is treated as a variable
+to be measured rather than a detail to be settled by taste. Both strategies implement the same
+`Chunker` protocol, which is what makes them swappable in the benchmark.
+
+| Strategy | Boundary | Tradeoff |
+| --- | --- | --- |
+| Fixed-size | Every N words, with overlap | Predictable sizes; cuts wherever the count runs out, routinely separating a definition from its term |
+| Structure-aware | Heading → paragraph → sentence → word window | Respects the author's own boundaries; produces uneven sizes, and depends on headings being detectable |
+
+Sizes are counted in **words**, not characters — word counts track token counts far more
+closely, BM25 tokenizes on word boundaries anyway, and a boundary that lands on a word can
+never bisect an acronym or identifier.
+
+Neither strategy lets a chunk span a page boundary, so every chunk cites exactly one page.
+
+Structure-aware chunking degrades one step at a time rather than failing: a heading always
+starts a new chunk, paragraphs accumulate until the next would overflow, an oversized paragraph
+is split between sentences, and only a single sentence longer than the limit falls back to a
+blind word window. Heading detection is intentionally conservative — known section names,
+numbered headings, and all-caps lines, but *not* generic title case, which fires on figure
+captions and author lines. A missed heading degrades to paragraph chunking; a false one splits
+a section in half.
+
+Which strategy actually retrieves better is an open question here, and is measured rather than
+assumed — see [Results](#results).
 
 ## Retrieval methods
 
@@ -271,7 +300,7 @@ Directories appear as the milestones that need them land, rather than as empty s
 - [x] Repository, packaging, and Python 3.11 environment
 - [x] PDF ingestion with page metadata
 - [x] Fixed-size chunking with configurable overlap
-- [ ] Structure-aware chunking
+- [x] Structure-aware chunking along headings and sentences
 - [ ] BM25 lexical retrieval
 - [ ] Dense embedding retrieval
 - [ ] Reciprocal rank fusion + hybrid retriever
