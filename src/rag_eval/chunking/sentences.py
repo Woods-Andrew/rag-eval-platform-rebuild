@@ -8,6 +8,11 @@ __all__ = ["split_sentences"]
 
 # Lowercase, without the trailing period. A period following one of these is part of
 # the abbreviation, not the end of a sentence — "et al. (2024) showed" is one sentence.
+#
+# "no." (number) and "ms." (honorific) are deliberately absent: they collide with the
+# ordinary word "no" and with milliseconds, and this project reports latencies. Missing
+# an abbreviation costs one awkward split; a collision silently glues two sentences
+# together everywhere the common word appears.
 _ABBREVIATIONS = frozenset(
     {
         "al",
@@ -25,9 +30,6 @@ _ABBREVIATIONS = frozenset(
         "i.e",
         "inc",
         "mr",
-        "ms",
-        "no",
-        "nos",
         "pp",
         "prof",
         "ref",
@@ -40,10 +42,11 @@ _ABBREVIATIONS = frozenset(
     }
 )
 
-# A boundary is terminal punctuation, optional closing quotes or brackets, then
-# whitespace. Requiring the whitespace is what makes decimals ("0.95") and dotted
-# identifiers ("rag_eval.chunking") safe without any special handling.
-_BOUNDARY = re.compile(r"""(?<=[.!?])["')\]]*\s+""")
+# A boundary is terminal punctuation plus any closing quotes or brackets (group 1),
+# followed by whitespace. Requiring the whitespace is what makes decimals ("0.95") and
+# dotted identifiers ("rag_eval.chunking") safe without any special handling. The
+# closers are captured rather than skipped so they stay with the sentence they close.
+_BOUNDARY = re.compile(r"""([.!?]["')\]]*)\s+""")
 
 
 def split_sentences(text: str) -> list[str]:
@@ -58,9 +61,10 @@ def split_sentences(text: str) -> list[str]:
     sentences: list[str] = []
     start = 0
     for match in _BOUNDARY.finditer(text):
-        if not _is_sentence_end(text, match.start()):
+        end = match.end(1)
+        if not _is_sentence_end(text, end):
             continue
-        sentence = text[start : match.start()].strip()
+        sentence = text[start:end].strip()
         if sentence:
             sentences.append(sentence)
         start = match.end()
