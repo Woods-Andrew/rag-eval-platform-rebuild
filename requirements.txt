@@ -1,6 +1,8 @@
 # Runtime + development dependencies for the current milestone.
-# Retrieval dependencies (rank-bm25, numpy, sentence-transformers, torch)
-# are added at the retrieval milestone, not before.
+# Dense-retrieval dependencies (sentence-transformers, torch) are added at the
+# dense retrieval milestone, not before.
 
 pymupdf==1.28.2
 pytest==9.1.1
+rank-bm25==0.2.2
+numpy==2.4.6
