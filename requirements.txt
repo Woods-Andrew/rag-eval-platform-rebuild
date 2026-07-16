@@ -1,8 +1,12 @@
 # Runtime + development dependencies for the current milestone.
-# Dense-retrieval dependencies (sentence-transformers, torch) are added at the
-# dense retrieval milestone, not before.
+#
+# The unit suite never loads a model: encoders and rerankers are injected, and
+# sentence-transformers is imported lazily inside its adapter. These are needed to
+# *run* retrieval on a real corpus, not to run the tests.
 
 pymupdf==1.28.2
 pytest==9.1.1
 rank-bm25==0.2.2
 numpy==2.4.6
+sentence-transformers==5.7.0
+torch==2.13.0
