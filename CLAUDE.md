@@ -129,7 +129,14 @@ read-only reference. Do not modify, delete, reset, or copy source code from it.
 
 ## Current status
 
-PDF ingestion lands pages with provenance (`src/rag_eval/ingestion/`). Both chunking strategies
-are implemented behind the `Chunker` protocol (`src/rag_eval/chunking/`): fixed-size word
-windows and structure-aware splitting along headings, paragraphs, and sentences. Next milestone
-is the retrieval data model and BM25. See the roadmap in `README.md`.
+Ingestion, both chunking strategies, all three retrievers (BM25, dense, hybrid RRF), the
+Recall@K / nDCG@K evaluation runner, and the `index` / `search` / `evaluate` CLI are
+implemented and tested offline.
+
+**The benchmark dataset does not exist yet.** `data/documents/` is empty, so no labels have
+been written and no results have been measured. `data/evaluation/SCHEMA.md` documents the file
+format and the labelling procedure. Do not create a benchmark file with invented labels to
+"unblock" anything — `load_benchmark` validates every label against the corpus and will reject
+them, which is the intended behaviour.
+
+Next milestone is cross-encoder reranking. See the roadmap in `README.md`.
