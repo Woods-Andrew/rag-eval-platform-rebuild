@@ -197,11 +197,15 @@ hand-labeled benchmark of this size; graded relevance is left as future work.
 
 ## Benchmark dataset
 
-_Planned._ The benchmark document will be a technical research paper,
-*"Agentic AI for Disease-Aware Adaptive Multi-Omics Embedding"* (~7 pages).
+The loading, validation, and evaluation machinery is implemented. **The labelled dataset
+itself does not exist yet** — no source document has been added to `data/documents/`, and
+a relevance label can only be written by a person reading the paper. The file format is
+documented in [`data/evaluation/SCHEMA.md`](data/evaluation/SCHEMA.md), along with the
+labelling procedure.
 
-The benchmark will contain roughly 10–15 hand-written questions with manually verified
-relevant chunk IDs, spanning the query types that stress retrieval differently:
+The intended benchmark document is a technical research paper,
+*"Agentic AI for Disease-Aware Adaptive Multi-Omics Embedding"* (~7 pages), with roughly
+10–15 hand-written questions spanning the query types that stress retrieval differently:
 
 - exact / lexical terminology
 - semantic paraphrases
@@ -210,20 +214,27 @@ relevant chunk IDs, spanning the query types that stress retrieval differently:
 - numerical results
 - scientific findings
 
-Labels are validated against actual chunks produced by the ingestion pipeline. No relevance
-label in this repository is generated or guessed.
+Labels are validated against actual chunks produced by the ingestion pipeline — `evaluate`
+refuses to run if any label fails to resolve, because a benchmark scored against the wrong
+chunks is worse than no benchmark. No relevance label in this repository is generated or
+guessed.
+
+A chunk ID carries a digest of its own text, so a benchmark is valid **only** for the
+chunking configuration it was labelled under. Comparing chunking strategies means
+re-labelling, not reusing.
 
 Source PDFs are gitignored; the benchmark questions and labels are version controlled, since
 they are the reproducible part.
 
 ## Results
 
-_Not yet measured._
+_Not yet measured._ No source document has been labelled, so there is nothing to report.
 
-This section will hold real measured comparisons once the benchmark exists — retriever
-comparisons, chunking-strategy comparisons, and the latency tradeoff. Nothing is reported here
-until it has actually been run, and results are reported as measured whether or not they favor
-the more sophisticated method.
+The runner that will produce these numbers is implemented and tested; what is missing is the
+hand-labelled data, which cannot be generated. Once it exists this section will hold real
+measured comparisons — retriever comparisons, chunking-strategy comparisons, and the latency
+tradeoff. Nothing is reported here until it has actually been run, and results are reported as
+measured whether or not they favor the more sophisticated method.
 
 ## Installation
 
@@ -246,8 +257,27 @@ API key. Nothing in the current milestone requires it.
 
 ## Usage
 
-_Planned._ The benchmark CLI and the Streamlit interface arrive at their respective
-milestones. This section will document the exact commands once they exist.
+Three commands, all reading the same ingestion → chunking → corpus path, so a chunk ID
+means the same thing everywhere.
+
+```bash
+# Chunk a PDF and report corpus statistics
+python -m rag_eval index data/documents/paper.pdf
+python -m rag_eval index data/documents/paper.pdf --chunker structure
+
+# Run one query
+python -m rag_eval search data/documents/paper.pdf "how are missing modalities handled?" -k 5
+python -m rag_eval search data/documents/paper.pdf "imputation prior" -r hybrid
+
+# Run a labelled benchmark
+python -m rag_eval evaluate data/documents/paper.pdf data/evaluation/benchmark.json -k 5
+```
+
+`--retriever` accepts `bm25`, `dense`, or `hybrid`; `evaluate` takes it repeatedly and
+defaults to all three. `bm25` never loads an embedding model — the dense import happens
+only when a strategy that needs it is requested.
+
+The Streamlit interface arrives at its own milestone.
 
 ## Tests
 
@@ -301,12 +331,13 @@ Directories appear as the milestones that need them land, rather than as empty s
 - [x] PDF ingestion with page metadata
 - [x] Fixed-size chunking with configurable overlap
 - [x] Structure-aware chunking along headings and sentences
-- [ ] BM25 lexical retrieval
-- [ ] Dense embedding retrieval
-- [ ] Reciprocal rank fusion + hybrid retriever
-- [ ] Recall@K and nDCG@K + evaluation runner
+- [x] BM25 lexical retrieval
+- [x] Dense embedding retrieval
+- [x] Reciprocal rank fusion + hybrid retriever
+- [x] Recall@K and nDCG@K + evaluation runner
 - [ ] Hand-labeled benchmark on a real technical paper
-- [ ] Benchmark CLI and baseline results
+- [x] Benchmark CLI (`index`, `search`, `evaluate`)
+- [ ] Baseline results — needs a labelled document
 - [ ] Cross-encoder reranking
 - [ ] Chunking strategy experiments
 - [ ] Grounded generation with page-level citations
