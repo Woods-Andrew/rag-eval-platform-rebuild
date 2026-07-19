@@ -32,6 +32,14 @@ class BM25Retriever:
     Okapi formula. The algorithms this project implements explicitly are the ones a
     reader is meant to verify by eye — rank fusion and the metrics — not a textbook
     weighting scheme with a well-tested library behind it.
+
+    One consequence of that formula is worth knowing before it surprises someone.
+    Okapi IDF is ``log(N - n + 0.5) - log(n + 0.5)``, which at ``N = 2, n = 1`` is
+    exactly zero, and is negative for any term appearing in most of the corpus. On a
+    two- or three-chunk corpus every term therefore scores zero and this retriever
+    returns nothing at all. That is the formula behaving as designed on a corpus far
+    too small for it, not a failure here — a real document chunks into dozens of pieces
+    and the degeneracy disappears. It does mean a toy corpus is a bad smoke test.
     """
 
     def __init__(self, corpus: Corpus, *, tokenizer: Tokenizer = tokenize) -> None:
