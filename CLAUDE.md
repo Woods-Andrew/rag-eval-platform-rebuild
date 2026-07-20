@@ -129,9 +129,9 @@ read-only reference. Do not modify, delete, reset, or copy source code from it.
 
 ## Current status
 
-Ingestion, both chunking strategies, all three retrievers (BM25, dense, hybrid RRF), the
-Recall@K / nDCG@K evaluation runner, and the `index` / `search` / `evaluate` CLI are
-implemented and tested offline.
+Ingestion, both chunking strategies, all four retrieval strategies (BM25, dense, hybrid RRF,
+cross-encoder reranked), the Recall@K / nDCG@K evaluation runner, and the `index` / `search` /
+`evaluate` CLI are implemented and tested offline.
 
 **The benchmark dataset does not exist yet.** `data/documents/` is empty, so no labels have
 been written and no results have been measured. `data/evaluation/SCHEMA.md` documents the file
@@ -139,4 +139,5 @@ format and the labelling procedure. Do not create a benchmark file with invented
 "unblock" anything — `load_benchmark` validates every label against the corpus and will reject
 them, which is the intended behaviour.
 
-Next milestone is cross-encoder reranking. See the roadmap in `README.md`.
+Next milestone is chunking-strategy experiments, which depend on the benchmark existing. See
+the roadmap in `README.md`.
