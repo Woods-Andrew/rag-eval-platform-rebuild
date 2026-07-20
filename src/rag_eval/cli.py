@@ -16,7 +16,7 @@ from .retrieval import BM25Retriever, Corpus, DenseRetriever, HybridRetriever, R
 __all__ = ["main"]
 
 CHUNKERS = ("fixed", "structure")
-RETRIEVERS = ("bm25", "dense", "hybrid")
+RETRIEVERS = ("bm25", "dense", "hybrid", "reranked")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -78,7 +78,7 @@ def _make_chunker(name: str) -> Chunker:
 
 
 def _make_retriever(name: str, corpus: Corpus) -> Retriever:
-    """Build a retriever, importing the embedding model only when one is asked for."""
+    """Build a retriever, importing the ML models only when one is asked for."""
     if name == "bm25":
         return BM25Retriever(corpus)
 
@@ -86,9 +86,16 @@ def _make_retriever(name: str, corpus: Corpus) -> Retriever:
 
     if name == "dense":
         return DenseRetriever(corpus, SentenceTransformerEncoder())
-    return HybridRetriever(
+
+    hybrid = HybridRetriever(
         [BM25Retriever(corpus), DenseRetriever(corpus, SentenceTransformerEncoder())]
     )
+    if name == "hybrid":
+        return hybrid
+
+    from .reranking import CrossEncoderReranker, RerankingRetriever
+
+    return RerankingRetriever(hybrid, CrossEncoderReranker())
 
 
 def _command_index(args: argparse.Namespace) -> int:
