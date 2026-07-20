@@ -148,6 +148,11 @@ Each is implemented as an independent, individually benchmarkable component.
 | Hybrid RRF | Reciprocal rank fusion over both ranked lists | Recovers documents either method alone misses |
 | Hybrid + reranker | Cross-encoder rescoring of the fused top-K | Precision at the very top of the ranking |
 
+Reranking **cannot raise Recall@K beyond what the first stage already surfaced** within its
+candidate window — a chunk the retriever never returned cannot be promoted. What it improves is
+ordering, which is what nDCG measures. A reranker that lifts nDCG while leaving recall flat is
+working exactly as intended.
+
 **Why rank fusion and not score blending.** BM25 scores are unbounded, corpus-dependent, and
 not comparable across queries; cosine similarities live in `[-1, 1]`. Adding them (or
 min-max normalizing them per query) makes the weighting an artifact of score distributions
@@ -338,7 +343,7 @@ Directories appear as the milestones that need them land, rather than as empty s
 - [ ] Hand-labeled benchmark on a real technical paper
 - [x] Benchmark CLI (`index`, `search`, `evaluate`)
 - [ ] Baseline results — needs a labelled document
-- [ ] Cross-encoder reranking
+- [x] Cross-encoder reranking
 - [ ] Chunking strategy experiments
 - [ ] Grounded generation with page-level citations
 - [ ] Streamlit interface and evaluation dashboard
