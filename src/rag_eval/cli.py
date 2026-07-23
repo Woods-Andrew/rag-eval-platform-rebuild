@@ -10,6 +10,7 @@ from pathlib import Path
 from .chunking import Chunker, FixedSizeChunker, StructureAwareChunker
 from .evaluation import EvaluationReport, compare
 from .evaluation.benchmark import BenchmarkError, load_benchmark
+from .experiments import SPEC_HELP, format_sweep, parse_variant, run_sweep, write_sweep
 from .pipeline import build_corpus
 from .retrieval import BM25Retriever, Corpus, DenseRetriever, HybridRetriever, Retriever
 
@@ -62,6 +63,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="strategy to evaluate; repeatable (default: all three)",
     )
     evaluate.set_defaults(handler=_command_evaluate)
+
+    sweep = subparsers.add_parser(
+        "sweep", help="compare chunking configurations on the same document"
+    )
+    sweep.add_argument("pdf", type=Path, help="path to the source PDF")
+    sweep.add_argument(
+        "-v", "--variant", action="append", required=True, help=SPEC_HELP
+    )
+    sweep.add_argument("-k", "--top-k", type=int, default=5, help="cutoff K (default 5)")
+    sweep.add_argument(
+        "-r",
+        "--retriever",
+        choices=RETRIEVERS,
+        action="append",
+        help="strategy to evaluate; repeatable (default: all four)",
+    )
+    sweep.add_argument("-o", "--out", type=Path, help="write the full results as JSON")
+    sweep.set_defaults(handler=_command_sweep)
 
     return parser
 
@@ -155,6 +174,21 @@ def _command_evaluate(args: argparse.Namespace) -> int:
         if report.questions_with_no_hit:
             missed = ", ".join(report.questions_with_no_hit)
             print(f"\n{report.retriever_name}: nothing relevant in the top {args.top_k} for {missed}")
+    return 0
+
+
+def _command_sweep(args: argparse.Namespace) -> int:
+    variants = [parse_variant(spec) for spec in args.variant]
+    names = args.retriever or list(RETRIEVERS)
+
+    def retriever_factory(corpus: Corpus) -> dict[str, Retriever]:
+        return {name: _make_retriever(name, corpus) for name in names}
+
+    result = run_sweep(args.pdf, variants, retriever_factory=retriever_factory, k=args.top_k)
+    print(format_sweep(result))
+
+    if args.out:
+        print(f"\nwrote {write_sweep(result, args.out)}")
     return 0
 
 
