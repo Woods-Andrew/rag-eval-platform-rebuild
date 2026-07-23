@@ -37,6 +37,7 @@ All Python lives under `src/rag_eval/` (src-layout). Do not add top-level Python
 | `src/rag_eval/retrieval/` | BM25, dense, hybrid RRF |
 | `src/rag_eval/reranking/` | cross-encoder |
 | `src/rag_eval/evaluation/` | metrics, evaluator |
+| `src/rag_eval/experiments/` | chunking sweeps, corpus stats, result reporting |
 | `src/rag_eval/generation/` | grounded answers, citations |
 | `tests/` | offline, deterministic unit tests |
 | `data/documents/` | source PDFs — **gitignored** |
@@ -130,8 +131,9 @@ read-only reference. Do not modify, delete, reset, or copy source code from it.
 ## Current status
 
 Ingestion, both chunking strategies, all four retrieval strategies (BM25, dense, hybrid RRF,
-cross-encoder reranked), the Recall@K / nDCG@K evaluation runner, and the `index` / `search` /
-`evaluate` CLI are implemented and tested offline.
+cross-encoder reranked), the Recall@K / nDCG@K evaluation runner, the chunking-sweep
+experiment harness, and the `index` / `search` / `evaluate` / `sweep` CLI are implemented and
+tested offline.
 
 **The benchmark dataset does not exist yet.** `data/documents/` is empty, so no labels have
 been written and no results have been measured. `data/evaluation/SCHEMA.md` documents the file
@@ -139,5 +141,11 @@ format and the labelling procedure. Do not create a benchmark file with invented
 "unblock" anything — `load_benchmark` validates every label against the corpus and will reject
 them, which is the intended behaviour.
 
-Next milestone is chunking-strategy experiments, which depend on the benchmark existing. See
-the roadmap in `README.md`.
+The sweep harness runs today in stats-only mode (chunk counts and size distribution need no
+labels), but its retrieval-quality half is idle for the same reason. Comparing two chunking
+strategies needs *two* label sets, not one: a chunk ID carries a digest of its own text, so
+re-chunking invalidates every label written against the previous run. `run_sweep` enforces
+this per variant.
+
+Next milestone is grounded generation, which does not depend on the benchmark. See the
+roadmap in `README.md`.
