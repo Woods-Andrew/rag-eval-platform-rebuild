@@ -278,9 +278,22 @@ python -m rag_eval search data/documents/paper.pdf "imputation prior" -r hybrid
 python -m rag_eval evaluate data/documents/paper.pdf data/evaluation/benchmark.json -k 5
 ```
 
-`--retriever` accepts `bm25`, `dense`, or `hybrid`; `evaluate` takes it repeatedly and
-defaults to all three. `bm25` never loads an embedding model — the dense import happens
-only when a strategy that needs it is requested.
+```bash
+# Compare chunking configurations on the same document
+python -m rag_eval sweep data/documents/paper.pdf -v fixed -v structure
+python -m rag_eval sweep data/documents/paper.pdf \
+    -v fixed:200/40=data/evaluation/fixed-200.json \
+    -v fixed:400/80=data/evaluation/fixed-400.json \
+    -r bm25 -r hybrid -o experiments/results/chunk-size.json
+```
+
+`--retriever` accepts `bm25`, `dense`, `hybrid`, or `reranked`; `evaluate` and `sweep` take
+it repeatedly and default to all four. `bm25` never loads an embedding model — the dense
+import happens only when a strategy that needs it is requested.
+
+`sweep` takes each variant as `strategy[:A/B][=benchmark.json]`. With no benchmark attached
+it still runs, reporting chunk-count and chunk-size distribution — the half of a chunking
+experiment that needs no relevance labels. Attach a benchmark and it scores retrieval too.
 
 The Streamlit interface arrives at its own milestone.
 
@@ -317,8 +330,8 @@ src/rag_eval/
 ├── retrieval/     BM25, dense, hybrid RRF
 ├── reranking/     cross-encoder
 ├── evaluation/    Recall@K, nDCG@K, benchmark runner
-├── generation/    grounded answers, citations
-└── config.py
+├── experiments/   chunking sweeps and result reporting
+└── generation/    grounded answers, citations
 
 tests/          unit tests (offline, deterministic)
 data/           documents (gitignored) + benchmark labels (version controlled)
@@ -344,7 +357,8 @@ Directories appear as the milestones that need them land, rather than as empty s
 - [x] Benchmark CLI (`index`, `search`, `evaluate`)
 - [ ] Baseline results — needs a labelled document
 - [x] Cross-encoder reranking
-- [ ] Chunking strategy experiments
+- [x] Chunking strategy experiment harness
+- [ ] Chunking strategy results — needs labelled documents
 - [ ] Grounded generation with page-level citations
 - [ ] Streamlit interface and evaluation dashboard
 
