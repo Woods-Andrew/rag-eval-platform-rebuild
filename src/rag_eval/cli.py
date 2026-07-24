@@ -11,6 +11,7 @@ from .chunking import Chunker, FixedSizeChunker, StructureAwareChunker
 from .evaluation import EvaluationReport, compare
 from .evaluation.benchmark import BenchmarkError, load_benchmark
 from .experiments import SPEC_HELP, format_sweep, parse_variant, run_sweep, write_sweep
+from .generation import DEFAULT_GENERATION_MODEL, GenerationError
 from .pipeline import build_corpus
 from .retrieval import BM25Retriever, Corpus, DenseRetriever, HybridRetriever, Retriever
 
@@ -27,7 +28,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         return args.handler(args)
-    except (FileNotFoundError, ValueError, BenchmarkError) as exc:
+    except (FileNotFoundError, ValueError, BenchmarkError, GenerationError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
@@ -81,6 +82,21 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sweep.add_argument("-o", "--out", type=Path, help="write the full results as JSON")
     sweep.set_defaults(handler=_command_sweep)
+
+    ask = subparsers.add_parser("ask", help="answer a question with cited evidence")
+    _add_corpus_arguments(ask)
+    ask.add_argument("query", help="the question to answer")
+    ask.add_argument(
+        "-k", "--top-k", type=int, default=5, help="passages to ground on (default 5)"
+    )
+    ask.add_argument(
+        "-r", "--retriever", choices=RETRIEVERS, default="hybrid", help="strategy (default hybrid)"
+    )
+    ask.add_argument("--model", default=DEFAULT_GENERATION_MODEL, help="generation model")
+    ask.add_argument(
+        "--show-evidence", action="store_true", help="print the passages the answer was given"
+    )
+    ask.set_defaults(handler=_command_ask)
 
     return parser
 
@@ -189,6 +205,31 @@ def _command_sweep(args: argparse.Namespace) -> int:
 
     if args.out:
         print(f"\nwrote {write_sweep(result, args.out)}")
+    return 0
+
+
+def _command_ask(args: argparse.Namespace) -> int:
+    """Retrieve, then answer from what was retrieved — never the other way round."""
+    from .generation import AnswerGenerator, ClaudeLanguageModel
+
+    corpus = build_corpus(args.pdf, _make_chunker(args.chunker))
+    results = _make_retriever(args.retriever, corpus).retrieve(args.query, top_k=args.top_k)
+
+    generator = AnswerGenerator(ClaudeLanguageModel(args.model), max_evidence=args.top_k)
+    answer = generator.answer(args.query, results)
+
+    if args.show_evidence:
+        print(f"evidence ({len(answer.evidence)} passage(s) via {args.retriever}):\n")
+        for item in answer.evidence:
+            print(f"  [{item.marker}] {item.citation}")
+            print(f"      {_preview(item.text)}\n")
+
+    print(answer.format())
+
+    if answer.unresolved_citations:
+        markers = ", ".join(str(marker) for marker in answer.unresolved_citations)
+        print(f"\nwarning: the answer cited [{markers}], which was never supplied as evidence")
+        return 1
     return 0
 
 
