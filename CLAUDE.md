@@ -38,7 +38,7 @@ All Python lives under `src/rag_eval/` (src-layout). Do not add top-level Python
 | `src/rag_eval/reranking/` | cross-encoder |
 | `src/rag_eval/evaluation/` | metrics, evaluator |
 | `src/rag_eval/experiments/` | chunking sweeps, corpus stats, result reporting |
-| `src/rag_eval/generation/` | grounded answers, citations |
+| `src/rag_eval/generation/` | grounded answers, citations, refusal |
 | `tests/` | offline, deterministic unit tests |
 | `data/documents/` | source PDFs — **gitignored** |
 | `data/evaluation/` | benchmark questions + labels — **version controlled** |
@@ -132,8 +132,11 @@ read-only reference. Do not modify, delete, reset, or copy source code from it.
 
 Ingestion, both chunking strategies, all four retrieval strategies (BM25, dense, hybrid RRF,
 cross-encoder reranked), the Recall@K / nDCG@K evaluation runner, the chunking-sweep
-experiment harness, and the `index` / `search` / `evaluate` / `sweep` CLI are implemented and
-tested offline.
+experiment harness, grounded generation with page-level citations, and the `index` / `search`
+/ `evaluate` / `sweep` / `ask` CLI are implemented and tested offline.
+
+Generation talks to the Anthropic Messages API through a stdlib `urllib` POST — no SDK, no
+new dependency. Unit tests stub `urlopen`, so nothing reaches the network.
 
 **The benchmark dataset does not exist yet.** `data/documents/` is empty, so no labels have
 been written and no results have been measured. `data/evaluation/SCHEMA.md` documents the file
@@ -147,5 +150,5 @@ strategies needs *two* label sets, not one: a chunk ID carries a digest of its o
 re-chunking invalidates every label written against the previous run. `run_sweep` enforces
 this per variant.
 
-Next milestone is grounded generation, which does not depend on the benchmark. See the
+Next milestone is the Streamlit interface, which does not depend on the benchmark. See the
 roadmap in `README.md`.
