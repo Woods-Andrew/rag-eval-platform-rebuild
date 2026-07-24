@@ -10,7 +10,7 @@ from collections.abc import Mapping, Sequence
 
 import numpy as np
 
-__all__ = ["FakeEncoder", "FakeReranker"]
+__all__ = ["FakeEncoder", "FakeLanguageModel", "FakeReranker"]
 
 
 class FakeEncoder:
@@ -49,3 +49,24 @@ class FakeReranker:
     def score(self, query: str, passages: Sequence[str]) -> list[float]:
         self.calls.append((query, tuple(passages)))
         return [float(self.scores.get((query, passage), 0.0)) for passage in passages]
+
+
+class FakeLanguageModel:
+    """Returns a scripted reply and records what it was asked.
+
+    Recording the calls is the point as often as the reply is: several rules in the
+    generator are about *not* calling the model, and those can only be checked by
+    asking the fake whether it heard anything.
+    """
+
+    def __init__(self, reply: str = "An answer [1].") -> None:
+        self.reply = reply
+        self.calls: list[tuple[str, str]] = []
+
+    def complete(self, system: str, prompt: str) -> str:
+        self.calls.append((system, prompt))
+        return self.reply
+
+    @property
+    def last_prompt(self) -> str:
+        return self.calls[-1][1]
