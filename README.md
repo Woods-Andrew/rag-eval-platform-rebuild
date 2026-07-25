@@ -23,6 +23,7 @@ relevance labels.
 - [Retrieval methods](#retrieval-methods)
 - [Evaluation methodology](#evaluation-methodology)
 - [Grounded generation](#grounded-generation)
+- [Interface](#interface)
 - [Benchmark dataset](#benchmark-dataset)
 - [Results](#results)
 - [Installation](#installation)
@@ -232,6 +233,33 @@ is no vector database here: it is one endpoint, and writing it out keeps the dep
 honest and the mechanics visible. No streaming, no retries, no pooling — none of which matter
 behind a retriever that costs more than the request does.
 
+## Interface
+
+```bash
+streamlit run streamlit_app.py
+```
+
+A single page: pick a document and a chunking strategy, choose among the four retrieval
+strategies, set K, and optionally generate a cited answer. Retrieved passages are shown with
+their rank, score, chunk ID, and full text, so what the ranking did is inspectable rather
+than implied.
+
+Streamlit reruns the entire script on every interaction, which makes the naive version of
+this app re-chunk and re-embed the document on each keystroke. Both the corpus and every
+retriever are therefore cached for the life of a session: switching from dense to hybrid to
+reranked constructs one encoder, total. The cache key is `(document, chunker)` because
+changing the chunker genuinely produces a different index — different chunks, different IDs —
+rather than the same index viewed differently.
+
+Generation is opt-in and degrades rather than failing: with no `ANTHROPIC_API_KEY` set, the
+app says so and shows retrieval only. Retrieval never needs a key.
+
+The dependency runs one way. `src/rag_eval/ui/service.py` holds everything the interface
+does and imports no UI framework; `src/rag_eval/ui/app.py` is the only module in the project
+that imports Streamlit, and nothing imports it back. Four tests enforce this by launching a
+subprocess and asserting `streamlit` is absent from `sys.modules` after importing retrieval,
+evaluation, the CLI, and the service layer.
+
 ## Benchmark dataset
 
 The loading, validation, and evaluation machinery is implemented. **The labelled dataset
@@ -338,7 +366,10 @@ python -m rag_eval ask data/documents/paper.pdf "what is the ablation result?" \
 `ask` exits non-zero if the answer cites a passage that was never supplied. It defaults to
 hybrid retrieval; every other strategy is available through the same `--retriever` flag.
 
-The Streamlit interface arrives at its own milestone.
+```bash
+# The interface
+streamlit run streamlit_app.py
+```
 
 ## Tests
 
@@ -354,7 +385,7 @@ model will be marked as an integration test and kept separate.
 ## Design principles
 
 1. Components are modular and independently testable.
-2. Retrieval and evaluation never depend on Streamlit.
+2. Retrieval and evaluation never depend on Streamlit; the boundary is tested, not trusted.
 3. Evaluation never depends on answer generation.
 4. Generation consumes retrieved evidence; it does not control retrieval.
 5. Provenance — source, page, chunk ID, metadata — survives every stage of the pipeline.
@@ -374,14 +405,14 @@ src/rag_eval/
 ├── reranking/     cross-encoder
 ├── evaluation/    Recall@K, nDCG@K, benchmark runner
 ├── experiments/   chunking sweeps and result reporting
-└── generation/    grounded answers, citations, refusal
+├── generation/    grounded answers, citations, refusal
+├── ui/            Streamlit app + the service layer beneath it
+└── cli.py         index / search / evaluate / sweep / ask
 
-tests/          unit tests (offline, deterministic)
-data/           documents (gitignored) + benchmark labels (version controlled)
-experiments/    benchmark scripts and generated results
-scripts/        CLI entry points
-app/            Streamlit interface
-docs/           architecture and methodology notes
+streamlit_app.py   Streamlit entry point (a one-line script)
+tests/             unit tests (offline, deterministic)
+data/              documents (gitignored) + benchmark labels (version controlled)
+experiments/       generated results (gitignored)
 ```
 
 Directories appear as the milestones that need them land, rather than as empty scaffolding.
@@ -403,7 +434,9 @@ Directories appear as the milestones that need them land, rather than as empty s
 - [x] Chunking strategy experiment harness
 - [ ] Chunking strategy results — needs labelled documents
 - [x] Grounded generation with page-level citations
-- [ ] Streamlit interface and evaluation dashboard
+- [x] Streamlit interface
+- [ ] End-to-end tests and cross-run caching
+- [ ] Documentation and public release
 
 ## Limitations
 
