@@ -39,6 +39,7 @@ All Python lives under `src/rag_eval/` (src-layout). Do not add top-level Python
 | `src/rag_eval/evaluation/` | metrics, evaluator |
 | `src/rag_eval/experiments/` | chunking sweeps, corpus stats, result reporting |
 | `src/rag_eval/generation/` | grounded answers, citations, refusal |
+| `src/rag_eval/ui/` | Streamlit app + its UI-framework-free service layer |
 | `tests/` | offline, deterministic unit tests |
 | `data/documents/` | source PDFs — **gitignored** |
 | `data/evaluation/` | benchmark questions + labels — **version controlled** |
@@ -132,8 +133,9 @@ read-only reference. Do not modify, delete, reset, or copy source code from it.
 
 Ingestion, both chunking strategies, all four retrieval strategies (BM25, dense, hybrid RRF,
 cross-encoder reranked), the Recall@K / nDCG@K evaluation runner, the chunking-sweep
-experiment harness, grounded generation with page-level citations, and the `index` / `search`
-/ `evaluate` / `sweep` / `ask` CLI are implemented and tested offline.
+experiment harness, grounded generation with page-level citations, the Streamlit
+interface, and the `index` / `search` / `evaluate` / `sweep` / `ask` CLI are implemented and
+tested offline.
 
 Generation talks to the Anthropic Messages API through a stdlib `urllib` POST — no SDK, no
 new dependency. Unit tests stub `urlopen`, so nothing reaches the network.
@@ -150,5 +152,7 @@ strategies needs *two* label sets, not one: a chunk ID carries a digest of its o
 re-chunking invalidates every label written against the previous run. `run_sweep` enforces
 this per variant.
 
-Next milestone is the Streamlit interface, which does not depend on the benchmark. See the
-roadmap in `README.md`.
+`streamlit_app.py` at the repo root is the one permitted top-level script — Streamlit needs a
+script path, not a module — and it stays a one-liner. All UI logic lives in `src/rag_eval/ui/`.
+
+Next milestone is end-to-end tests and cross-run caching. See the roadmap in `README.md`.
