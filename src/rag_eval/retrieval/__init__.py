@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .base import Retriever, validate_query, validate_top_k
 from .bm25 import BM25Retriever
+from .cache import DEFAULT_CACHE_DIR, EmbeddingCache, encoder_identity, fingerprint
 from .corpus import Corpus
 from .dense import DenseRetriever
 from .encoder import DEFAULT_MODEL, SentenceTransformerEncoder, TextEncoder, l2_normalize
@@ -13,17 +14,21 @@ from .models import RetrievalResult, rank_results
 from .tokenize import tokenize
 
 __all__ = [
+    "DEFAULT_CACHE_DIR",
     "DEFAULT_CANDIDATE_MULTIPLIER",
     "DEFAULT_MODEL",
     "DEFAULT_RRF_K",
     "BM25Retriever",
     "Corpus",
     "DenseRetriever",
+    "EmbeddingCache",
     "HybridRetriever",
     "RetrievalResult",
     "Retriever",
     "SentenceTransformerEncoder",
     "TextEncoder",
+    "encoder_identity",
+    "fingerprint",
     "l2_normalize",
     "rank_results",
     "reciprocal_rank_fusion",
