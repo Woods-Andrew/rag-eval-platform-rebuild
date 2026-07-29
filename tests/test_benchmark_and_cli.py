@@ -233,12 +233,13 @@ class TestCLI:
     def test_the_cli_never_loads_an_embedding_model_for_bm25(
         self, paper: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # The dense import lives inside _make_retriever, so a bm25 run stays offline.
-        import rag_eval.cli as cli_module
+        # The encoder is constructed lazily by the factory, so a bm25 run never
+        # touches sentence-transformers and stays offline.
+        import rag_eval.factory as factory_module
 
         def explode() -> None:
             raise AssertionError("bm25 must not construct an encoder")
 
-        monkeypatch.setattr(cli_module, "DenseRetriever", explode)
+        monkeypatch.setattr(factory_module, "_default_encoder", explode)
 
         assert main(["search", str(paper), "imputed missing modalities"]) == 0
