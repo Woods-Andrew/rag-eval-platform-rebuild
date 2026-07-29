@@ -112,6 +112,11 @@ class EmbeddingCache:
                 )
             temporary.replace(path)
         except OSError:
-            temporary.unlink(missing_ok=True)
+            # The cleanup can fail for the same reason the write did — an unwritable
+            # or non-existent parent — so it must not be able to raise either.
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
             return None
         return path
