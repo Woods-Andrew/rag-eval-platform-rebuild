@@ -40,6 +40,7 @@ All Python lives under `src/rag_eval/` (src-layout). Do not add top-level Python
 | `src/rag_eval/experiments/` | chunking sweeps, corpus stats, result reporting |
 | `src/rag_eval/generation/` | grounded answers, citations, refusal |
 | `src/rag_eval/ui/` | Streamlit app + its UI-framework-free service layer |
+| `src/rag_eval/factory.py` | builds the four strategies over one corpus, each at most once |
 | `tests/` | offline, deterministic unit tests |
 | `data/documents/` | source PDFs — **gitignored** |
 | `data/evaluation/` | benchmark questions + labels — **version controlled** |
@@ -61,7 +62,9 @@ These are non-negotiable and exist to keep the project honest:
 5. **Never add BM25 scores to cosine similarities.** They are not on a comparable scale.
    Combination happens through rank fusion (RRF), always.
 6. **Encode the corpus once.** Never re-embed documents per query; only the query is encoded
-   at retrieval time.
+   at retrieval time. `EmbeddingCache` extends this across processes — and every entry is
+   verified against the chunk IDs it was built from, so a stale key is a miss, never wrong
+   vectors.
 7. **Implement RRF, Recall@K, and nDCG@K explicitly.** These are the parts a reader should be
    able to verify by eye. Do not delegate them to a library.
 8. **ML models are dependency-injected.** Encoders and rerankers are passed in so tests can
@@ -134,8 +137,8 @@ read-only reference. Do not modify, delete, reset, or copy source code from it.
 Ingestion, both chunking strategies, all four retrieval strategies (BM25, dense, hybrid RRF,
 cross-encoder reranked), the Recall@K / nDCG@K evaluation runner, the chunking-sweep
 experiment harness, grounded generation with page-level citations, the Streamlit
-interface, and the `index` / `search` / `evaluate` / `sweep` / `ask` CLI are implemented and
-tested offline.
+interface, the cross-run embedding cache, and the `index` / `search` / `evaluate` / `sweep` /
+`ask` CLI are implemented and tested offline. End-to-end tests cover the assembled pipeline.
 
 Generation talks to the Anthropic Messages API through a stdlib `urllib` POST — no SDK, no
 new dependency. Unit tests stub `urlopen`, so nothing reaches the network.
@@ -155,4 +158,4 @@ this per variant.
 `streamlit_app.py` at the repo root is the one permitted top-level script — Streamlit needs a
 script path, not a module — and it stays a one-liner. All UI logic lives in `src/rag_eval/ui/`.
 
-Next milestone is end-to-end tests and cross-run caching. See the roadmap in `README.md`.
+Next milestone is documentation, then public release. See the roadmap in `README.md`.
