@@ -11,14 +11,15 @@ from .chunking import Chunker, FixedSizeChunker, StructureAwareChunker
 from .evaluation import EvaluationReport, compare
 from .evaluation.benchmark import BenchmarkError, load_benchmark
 from .experiments import SPEC_HELP, format_sweep, parse_variant, run_sweep, write_sweep
+from .factory import RETRIEVER_NAMES, RetrieverFactory
 from .generation import DEFAULT_GENERATION_MODEL, GenerationError
 from .pipeline import build_corpus
-from .retrieval import BM25Retriever, Corpus, DenseRetriever, HybridRetriever, Retriever
+from .retrieval import DEFAULT_CACHE_DIR, Corpus, EmbeddingCache, Retriever
 
 __all__ = ["main"]
 
 CHUNKERS = ("fixed", "structure")
-RETRIEVERS = ("bm25", "dense", "hybrid", "reranked")
+RETRIEVERS = RETRIEVER_NAMES
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -81,6 +82,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="strategy to evaluate; repeatable (default: all four)",
     )
     sweep.add_argument("-o", "--out", type=Path, help="write the full results as JSON")
+    _add_cache_arguments(sweep)
     sweep.set_defaults(handler=_command_sweep)
 
     ask = subparsers.add_parser("ask", help="answer a question with cited evidence")
@@ -106,31 +108,32 @@ def _add_corpus_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "-c", "--chunker", choices=CHUNKERS, default="fixed", help="strategy (default fixed)"
     )
+    _add_cache_arguments(parser)
+
+
+def _add_cache_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=DEFAULT_CACHE_DIR,
+        help=f"where to cache corpus embeddings (default {DEFAULT_CACHE_DIR})",
+    )
+    parser.add_argument(
+        "--no-cache", action="store_true", help="always re-embed instead of reading the cache"
+    )
 
 
 def _make_chunker(name: str) -> Chunker:
     return FixedSizeChunker() if name == "fixed" else StructureAwareChunker()
 
 
-def _make_retriever(name: str, corpus: Corpus) -> Retriever:
-    """Build a retriever, importing the ML models only when one is asked for."""
-    if name == "bm25":
-        return BM25Retriever(corpus)
+def _cache_from(args: argparse.Namespace) -> EmbeddingCache | None:
+    return None if args.no_cache else EmbeddingCache(args.cache_dir)
 
-    from .retrieval import SentenceTransformerEncoder
 
-    if name == "dense":
-        return DenseRetriever(corpus, SentenceTransformerEncoder())
-
-    hybrid = HybridRetriever(
-        [BM25Retriever(corpus), DenseRetriever(corpus, SentenceTransformerEncoder())]
-    )
-    if name == "hybrid":
-        return hybrid
-
-    from .reranking import CrossEncoderReranker, RerankingRetriever
-
-    return RerankingRetriever(hybrid, CrossEncoderReranker())
+def _factory_for(corpus: Corpus, args: argparse.Namespace) -> RetrieverFactory:
+    """One factory per command, so strategies built together share their components."""
+    return RetrieverFactory(corpus, cache=_cache_from(args))
 
 
 def _command_index(args: argparse.Namespace) -> int:
@@ -152,7 +155,8 @@ def _command_index(args: argparse.Namespace) -> int:
 
 def _command_search(args: argparse.Namespace) -> int:
     corpus = build_corpus(args.pdf, _make_chunker(args.chunker))
-    results = _make_retriever(args.retriever, corpus).retrieve(args.query, top_k=args.top_k)
+    retriever = _factory_for(corpus, args).get(args.retriever)
+    results = retriever.retrieve(args.query, top_k=args.top_k)
 
     if not results:
         print(f"no results for {args.query!r}")
@@ -170,8 +174,8 @@ def _command_evaluate(args: argparse.Namespace) -> int:
     corpus = build_corpus(args.pdf, _make_chunker(args.chunker))
     benchmark = load_benchmark(args.benchmark, corpus)
 
-    names = args.retriever or list(RETRIEVERS)
-    retrievers = {name: _make_retriever(name, corpus) for name in names}
+    names = tuple(args.retriever or RETRIEVERS)
+    retrievers = _factory_for(corpus, args).all(names)
     reports = compare(retrievers, list(benchmark.questions), k=args.top_k)
 
     print(f"{benchmark.document or args.pdf.name}: {len(benchmark)} questions, "
@@ -195,10 +199,13 @@ def _command_evaluate(args: argparse.Namespace) -> int:
 
 def _command_sweep(args: argparse.Namespace) -> int:
     variants = [parse_variant(spec) for spec in args.variant]
-    names = args.retriever or list(RETRIEVERS)
+    names = tuple(args.retriever or RETRIEVERS)
+    cache = _cache_from(args)
 
     def retriever_factory(corpus: Corpus) -> dict[str, Retriever]:
-        return {name: _make_retriever(name, corpus) for name in names}
+        # A fresh factory per variant: each variant is a different corpus, so nothing
+        # may be shared across them.
+        return RetrieverFactory(corpus, cache=cache).all(names)
 
     result = run_sweep(args.pdf, variants, retriever_factory=retriever_factory, k=args.top_k)
     print(format_sweep(result))
@@ -213,7 +220,8 @@ def _command_ask(args: argparse.Namespace) -> int:
     from .generation import AnswerGenerator, ClaudeLanguageModel
 
     corpus = build_corpus(args.pdf, _make_chunker(args.chunker))
-    results = _make_retriever(args.retriever, corpus).retrieve(args.query, top_k=args.top_k)
+    retriever = _factory_for(corpus, args).get(args.retriever)
+    results = retriever.retrieve(args.query, top_k=args.top_k)
 
     generator = AnswerGenerator(ClaudeLanguageModel(args.model), max_evidence=args.top_k)
     answer = generator.answer(args.query, results)

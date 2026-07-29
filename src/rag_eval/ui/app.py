@@ -14,7 +14,7 @@ from pathlib import Path
 import streamlit as st
 
 from ..generation import GroundedAnswer, LanguageModel
-from ..retrieval import RetrievalResult
+from ..retrieval import EmbeddingCache, RetrievalResult
 from .service import CHUNKERS, RETRIEVERS, RetrievalService, make_chunker
 
 __all__ = ["main"]
@@ -32,7 +32,12 @@ def load_service(pdf_path: str, chunker: str) -> RetrievalService:
     different index, not the same one viewed differently.
     """
     return RetrievalService(
-        pdf_path, make_chunker(chunker), model_factory=_model_factory()
+        pdf_path,
+        make_chunker(chunker),
+        # Survives a restart, unlike the in-process cache above: relaunching the app
+        # on a document it has already indexed reads the embeddings off disk.
+        cache=EmbeddingCache(),
+        model_factory=_model_factory(),
     )
 
 
