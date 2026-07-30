@@ -9,9 +9,10 @@ evidence it was never given. So the core of this project is a measured compariso
 strategies over a real technical paper, using Recall@K and nDCG@K against manually validated
 relevance labels.
 
-> **Status: early build.** This README documents what exists today and what is planned.
-> Sections marked _planned_ are not implemented yet, and no benchmark numbers appear
-> anywhere in this repository until they have actually been measured.
+> **Status: complete pipeline, unmeasured benchmark.** Every stage described below is
+> implemented and tested. What does not exist is the labelled dataset — no source document
+> has been added, so [Results](#results) is empty and stays empty. No benchmark number
+> appears anywhere in this repository until it has actually been measured.
 
 ---
 
@@ -34,6 +35,7 @@ relevance labels.
 - [Project layout](#project-layout)
 - [Roadmap](#roadmap)
 - [Limitations](#limitations)
+- [Further reading](#further-reading)
 - [License](#license)
 
 ---
@@ -471,7 +473,23 @@ Directories appear as the milestones that need them land, rather than as empty s
 - [x] Grounded generation with page-level citations
 - [x] Streamlit interface
 - [x] End-to-end tests and cross-run embedding cache
-- [ ] Documentation and public release
+- [x] Architecture, methodology, and decision documentation
+- [ ] Public release
+
+## Further reading
+
+Longer-form notes live in [`docs/`](docs/):
+
+| Document | Contents |
+| --- | --- |
+| [Architecture](docs/architecture.md) | Module map, the path a query takes, the four import boundaries and how they are enforced, where cost lives |
+| [Methodology](docs/methodology.md) | Recall@K, nDCG@K, and RRF worked by hand; the Okapi IDF degeneracy; why relevance is binary; what the numbers cannot tell you |
+| [Design decisions](docs/decisions.md) | Thirteen choices that could have gone the other way, each with what it costs |
+| [Benchmark format](data/evaluation/SCHEMA.md) | The label file schema and the labelling procedure |
+
+Every worked figure in the methodology notes is recomputed by `tests/test_docs.py`, so a
+change in the code that contradicts the documentation fails the suite rather than drifting
+quietly.
 
 ## Limitations
 
