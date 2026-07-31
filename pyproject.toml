@@ -4,24 +4,58 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rag-eval-platform"
-version = "0.1.0"
+version = "0.9.0"
 description = "A hybrid retrieval and evaluation platform for technical documents: BM25, dense embeddings, reciprocal rank fusion, cross-encoder reranking, and Recall@K / nDCG@K benchmarking."
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 license = { text = "MIT" }
 authors = [{ name = "Andrew Woods" }]
+keywords = ["rag", "retrieval", "bm25", "reranking", "ndcg", "evaluation", "information-retrieval"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Indexing",
+    "Typing :: Typed",
+]
 
+# Ingestion, chunking, BM25, evaluation, and generation run on these alone. The
+# embedding and reranking models are a separate extra because they pull in torch,
+# which is far larger than everything else combined and is not needed to run a
+# lexical benchmark.
 dependencies = [
     "pymupdf>=1.24",
+    "rank-bm25>=0.2.2",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
+models = [
+    "sentence-transformers>=5.0",
+    "torch>=2.0",
+]
+ui = [
+    "streamlit>=1.40",
+]
 dev = [
     "pytest>=8.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Woods-Andrew/rag-eval-platform-rebuild"
+Repository = "https://github.com/Woods-Andrew/rag-eval-platform-rebuild"
+Documentation = "https://github.com/Woods-Andrew/rag-eval-platform-rebuild/tree/main/docs"
+
+[project.scripts]
+rag-eval = "rag_eval.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+rag_eval = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
