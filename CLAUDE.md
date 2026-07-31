@@ -138,7 +138,16 @@ Ingestion, both chunking strategies, all four retrieval strategies (BM25, dense,
 cross-encoder reranked), the Recall@K / nDCG@K evaluation runner, the chunking-sweep
 experiment harness, grounded generation with page-level citations, the Streamlit
 interface, the cross-run embedding cache, and the `index` / `search` / `evaluate` / `sweep` /
-`ask` CLI are implemented and tested offline. End-to-end tests cover the assembled pipeline.
+`ask` CLI are implemented and tested offline. End-to-end tests cover the assembled pipeline,
+and `docs/` holds the architecture, methodology, and decision references.
+
+The project is packaged and released at **0.9.0** — not 1.0.0, deliberately. The machinery is
+complete; the benchmark has never been run, and calling that 1.0 would claim something this
+repository cannot show. 1.0.0 is for the first measured result.
+
+CI runs the suite on 3.11 with neither `torch` nor `sentence-transformers` installed, then
+asserts they are absent. Keep it that way: every test injects a fake model, so a test that
+needs a real one belongs in a separate, clearly marked integration suite.
 
 Generation talks to the Anthropic Messages API through a stdlib `urllib` POST — no SDK, no
 new dependency. Unit tests stub `urlopen`, so nothing reaches the network.
@@ -158,4 +167,7 @@ this per variant.
 `streamlit_app.py` at the repo root is the one permitted top-level script — Streamlit needs a
 script path, not a module — and it stays a one-liner. All UI logic lives in `src/rag_eval/ui/`.
 
-Next milestone is documentation, then public release. See the roadmap in `README.md`.
+**The remaining work is not code.** Add a technical paper to `data/documents/`, run
+`python -m rag_eval index` on it, and hand-write relevance labels against the chunk IDs it
+produces. Everything downstream — `evaluate`, `sweep`, the Results section, the resume claim —
+is blocked on that one human step and cannot be unblocked by writing more software.
