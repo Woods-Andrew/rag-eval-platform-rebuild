@@ -320,6 +320,24 @@ python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r requirements.txt
 ```
 
+`requirements.txt` is the fully pinned environment. To install less, the package declares
+extras that match how the code is layered:
+
+```bash
+pip install -e .              # ingestion, chunking, BM25, evaluation, generation
+pip install -e ".[models]"    # + dense retrieval and cross-encoder reranking (pulls torch)
+pip install -e ".[ui]"        # + the Streamlit interface
+pip install -e ".[dev]"       # + pytest
+```
+
+The split is real, not cosmetic: **the test suite never needs `torch`**. Encoders, rerankers,
+and language models are all dependency-injected and every test substitutes a fake, so CI
+installs neither `torch` nor `sentence-transformers` — and then asserts they are absent, so a
+future test cannot quietly start requiring one.
+
+Installing the package also puts a `rag-eval` command on the path, equivalent to
+`python -m rag_eval`.
+
 Copy `.env.example` to `.env` if you need to set optional cache paths or, later, a generation
 API key. Nothing in the current milestone requires it.
 
@@ -474,7 +492,7 @@ Directories appear as the milestones that need them land, rather than as empty s
 - [x] Streamlit interface
 - [x] End-to-end tests and cross-run embedding cache
 - [x] Architecture, methodology, and decision documentation
-- [ ] Public release
+- [x] Packaging, CI, and public release
 
 ## Further reading
 
@@ -507,4 +525,4 @@ Known and accepted, to be revisited as the project matures:
 
 ## License
 
-MIT.
+MIT — see [LICENSE](LICENSE).
