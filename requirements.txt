@@ -1,13 +1,19 @@
-# Runtime + development dependencies for the current milestone.
+# Fully pinned environment for reproducing this project as developed.
 #
-# The unit suite never loads a model: encoders and rerankers are injected, and
-# sentence-transformers is imported lazily inside its adapter. These are needed to
-# *run* retrieval on a real corpus, not to run the tests.
+# Layered to match the extras in pyproject.toml. The unit suite needs only the first
+# two groups: encoders, rerankers, and language models are all dependency-injected, and
+# every test substitutes a fake. Installing torch is required to *run* dense retrieval
+# on a real corpus, never to run the tests.
 
+# --- core: ingestion, chunking, BM25, evaluation, generation ---
 pymupdf==1.28.0
-pytest==9.1.1
 rank-bm25==0.2.2
 numpy==2.4.6
+
+# --- ui + tests ---
+streamlit==1.59.0
+pytest==9.1.1
+
+# --- models: dense retrieval and cross-encoder reranking (large) ---
 sentence-transformers==5.6.0
 torch==2.13.0
-streamlit==1.59.0
