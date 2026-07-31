@@ -1,0 +1,40 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # Only what the suite needs. sentence-transformers and torch are deliberately
+      # absent: every test injects a fake model, so a CI run that installed them
+      # would prove nothing except that the download worked.
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pymupdf rank-bm25 numpy streamlit pytest
+
+      - name: Test
+        run: python -m pytest -v
+
+      # The suite claims to run offline. This asserts it, rather than trusting that
+      # no future test quietly reaches for a model.
+      - name: Assert no model libraries were pulled in
+        run: |
+          python - <<'PY'
+          import importlib.util, sys
+          for name in ("torch", "sentence_transformers"):
+              if importlib.util.find_spec(name) is not None:
+                  sys.exit(f"{name} is installed; the offline suite must not require it")
+          print("no model libraries present — the suite ran fully offline")
+          PY
