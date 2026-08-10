@@ -28,6 +28,7 @@ relevance labels.
 - [Results](#results)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Performance](#performance)
 - [Tests](#tests)
 - [Design principles](#design-principles)
 - [Project layout](#project-layout)
@@ -371,11 +372,44 @@ hybrid retrieval; every other strategy is available through the same `--retrieve
 streamlit run streamlit_app.py
 ```
 
+## Performance
+
+Embedding the corpus is by far the slowest thing here, and the most wasteful to repeat: the
+vectors depend only on the chunk text and the model, neither of which changes between runs.
+Two layers of reuse follow from that.
+
+**Within a run**, one factory builds all four strategies, so the encoder is loaded once and
+the corpus embedded once no matter how many strategies are evaluated — hybrid and reranked
+are assembled from the same components as dense rather than rebuilding them.
+
+**Across runs**, `EmbeddingCache` writes the corpus matrix to `.cache/embeddings/`, keyed by
+a digest of the model name and every chunk ID. Because chunk IDs already contain a digest of
+their own text, that key covers the document *and* the chunking configuration: editing the
+PDF, re-chunking, or switching models all miss cleanly.
+
+The cache is safe to leave on because it cannot be wrong, only unhelpful. Every entry stores
+the chunk IDs it was built from and verifies them on load, so a stale or colliding key is a
+miss rather than silently mismatched vectors; corrupt files and failed writes are misses too.
+The worst case is recomputation. Disable it with `--no-cache`, or point it elsewhere with
+`--cache-dir`.
+
+```bash
+python -m rag_eval search data/documents/paper.pdf "imputation prior" -r hybrid
+python -m rag_eval search data/documents/paper.pdf "imputation prior" -r hybrid  # warm
+```
+
+No wall-clock numbers are quoted here. Nothing has been measured on a real corpus yet, and an
+unmeasured speedup is exactly the kind of number this project refuses to invent.
+
 ## Tests
 
 ```bash
 python -m pytest -v
 ```
+
+End-to-end tests run the assembled path — PDF → pages → chunks → corpus → retrieval → fusion
+→ reranking → evaluation → generation — with only the ML models faked, because a pipeline can
+be correct at every seam and still be wrong once put together.
 
 Unit tests are deterministic and run fully offline. No test downloads a model, hits the
 network, or calls an external API — embedding and reranking models are injected as
@@ -389,7 +423,7 @@ model will be marked as an integration test and kept separate.
 3. Evaluation never depends on answer generation.
 4. Generation consumes retrieved evidence; it does not control retrieval.
 5. Provenance — source, page, chunk ID, metadata — survives every stage of the pipeline.
-6. Corpus embeddings are computed once, not per query.
+6. Corpus embeddings are computed once, not per query, and reused across runs.
 7. BM25 scores are never added directly to cosine similarities; fusion happens over ranks.
 8. Mathematically important algorithms are written out explicitly and kept readable.
 9. Strong type hints, concise docstrings on public APIs, no premature abstraction.
@@ -407,6 +441,7 @@ src/rag_eval/
 ├── experiments/   chunking sweeps and result reporting
 ├── generation/    grounded answers, citations, refusal
 ├── ui/            Streamlit app + the service layer beneath it
+├── factory.py     builds the four strategies over one corpus, each once
 └── cli.py         index / search / evaluate / sweep / ask
 
 streamlit_app.py   Streamlit entry point (a one-line script)
@@ -435,7 +470,7 @@ Directories appear as the milestones that need them land, rather than as empty s
 - [ ] Chunking strategy results — needs labelled documents
 - [x] Grounded generation with page-level citations
 - [x] Streamlit interface
-- [ ] End-to-end tests and cross-run caching
+- [x] End-to-end tests and cross-run embedding cache
 - [ ] Documentation and public release
 
 ## Limitations

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from .base import validate_query, validate_top_k
+from .cache import EmbeddingCache, encoder_identity, fingerprint
 from .corpus import Corpus
 from .encoder import TextEncoder, l2_normalize
 from .models import RetrievalResult, rank_results
@@ -29,23 +30,53 @@ class DenseRetriever:
     The corpus is embedded **once**, at construction. Re-embedding per query would be
     the single most expensive mistake available here, and it is the reason the encoder
     is injected rather than constructed internally: the caller owns the model and can
-    reuse it across retrievers.
+    reuse it across retrievers. Passing an ``EmbeddingCache`` extends that across
+    processes, so a second run of the same document and model reads the matrix from
+    disk instead of recomputing it.
 
     Search is exact, not approximate. At this corpus size a full matrix multiply is
     both correct and fast, and an ANN index would obscure the mechanics this project
     exists to show.
     """
 
-    def __init__(self, corpus: Corpus, encoder: TextEncoder) -> None:
+    def __init__(
+        self, corpus: Corpus, encoder: TextEncoder, *, cache: EmbeddingCache | None = None
+    ) -> None:
         self._corpus = corpus
         self._encoder = encoder
+        self._cache_hit = False
 
-        embeddings = self._as_matrix(encoder.encode([chunk.text for chunk in corpus]))
-        if embeddings.shape[0] != len(corpus):
+        self._embeddings: NDArray[np.float32] = l2_normalize(self._corpus_embeddings(cache))
+
+    def _corpus_embeddings(self, cache: EmbeddingCache | None) -> NDArray[np.float32]:
+        """Load the corpus matrix from ``cache`` if it is there, otherwise encode it.
+
+        A cache miss and no cache at all take the same path, so behaviour does not
+        depend on whether caching is enabled — only how long it takes.
+        """
+        chunk_ids = self._corpus.chunk_ids
+        key = fingerprint(encoder_identity(self._encoder), chunk_ids) if cache else ""
+
+        if cache is not None:
+            cached = cache.load(key, chunk_ids)
+            if cached is not None:
+                self._cache_hit = True
+                return self._as_matrix(cached)
+
+        embeddings = self._as_matrix(self._encoder.encode([chunk.text for chunk in self._corpus]))
+        if embeddings.shape[0] != len(self._corpus):
             raise ValueError(
-                f"encoder returned {embeddings.shape[0]} vectors for {len(corpus)} chunks"
+                f"encoder returned {embeddings.shape[0]} vectors for {len(self._corpus)} chunks"
             )
-        self._embeddings: NDArray[np.float32] = l2_normalize(embeddings)
+
+        if cache is not None:
+            cache.store(key, chunk_ids, embeddings)
+        return embeddings
+
+    @property
+    def loaded_from_cache(self) -> bool:
+        """True when the corpus matrix came off disk rather than out of the encoder."""
+        return self._cache_hit
 
     @property
     def corpus(self) -> Corpus:

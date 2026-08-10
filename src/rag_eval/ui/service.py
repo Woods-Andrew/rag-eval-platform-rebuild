@@ -13,22 +13,15 @@ from pathlib import Path
 
 from ..chunking import Chunker, FixedSizeChunker, StructureAwareChunker
 from ..experiments import CorpusStats, describe_corpus
+from ..factory import RETRIEVER_NAMES, RetrieverFactory
 from ..generation import AnswerGenerator, GroundedAnswer, LanguageModel
 from ..pipeline import build_corpus
-from ..retrieval import (
-    BM25Retriever,
-    Corpus,
-    DenseRetriever,
-    HybridRetriever,
-    RetrievalResult,
-    Retriever,
-    TextEncoder,
-)
+from ..retrieval import Corpus, EmbeddingCache, RetrievalResult, Retriever, TextEncoder
 
-__all__ = ["CHUNKERS", "RETRIEVERS", "RetrievalService", "make_chunker"]
+__all__ = ["CHUNKERS", "RETRIEVERS", "RetrievalService", "SearchOutcome", "make_chunker"]
 
 CHUNKERS = ("fixed", "structure")
-RETRIEVERS = ("bm25", "dense", "hybrid", "reranked")
+RETRIEVERS = RETRIEVER_NAMES
 
 EncoderFactory = Callable[[], TextEncoder]
 RerankerFactory = Callable[[], object]
@@ -71,7 +64,9 @@ class RetrievalService:
       once" rule exists to prevent.
 
     Models arrive as factories rather than instances so nothing is downloaded until a
-    strategy that needs one is actually selected — and so tests can pass fakes.
+    strategy that needs one is actually selected — and so tests can pass fakes. An
+    ``EmbeddingCache`` carries the corpus matrix across process restarts, so restarting
+    the app does not re-embed a document it has already seen.
     """
 
     def __init__(
@@ -79,6 +74,7 @@ class RetrievalService:
         pdf_path: str | Path,
         chunker: Chunker | None = None,
         *,
+        cache: EmbeddingCache | None = None,
         encoder_factory: EncoderFactory | None = None,
         reranker_factory: RerankerFactory | None = None,
         model_factory: ModelFactory | None = None,
@@ -87,11 +83,13 @@ class RetrievalService:
         self.corpus: Corpus = build_corpus(pdf_path, chunker)
         self.stats: CorpusStats = describe_corpus(self.corpus)
 
-        self._encoder_factory = encoder_factory or _default_encoder
-        self._reranker_factory = reranker_factory or _default_reranker
         self._model_factory = model_factory
-        self._retrievers: dict[str, Retriever] = {}
-        self._encoder: TextEncoder | None = None
+        self._factory = RetrieverFactory(
+            self.corpus,
+            cache=cache,
+            encoder_factory=encoder_factory,
+            reranker_factory=reranker_factory,
+        )
 
     @property
     def document(self) -> str:
@@ -100,16 +98,11 @@ class RetrievalService:
     @property
     def built_retrievers(self) -> tuple[str, ...]:
         """Which strategies have actually been constructed, in construction order."""
-        return tuple(self._retrievers)
+        return self._factory.built
 
     def retriever(self, name: str) -> Retriever:
         """Return the named retriever, building it once and reusing it after that."""
-        if name not in RETRIEVERS:
-            raise ValueError(f"unknown retriever {name!r}; expected one of {', '.join(RETRIEVERS)}")
-
-        if name not in self._retrievers:
-            self._retrievers[name] = self._build(name)
-        return self._retrievers[name]
+        return self._factory.get(name)
 
     def search(self, query: str, *, retriever: str, top_k: int) -> Sequence[RetrievalResult]:
         """Run one query. Validation lives in the retrievers, not duplicated here."""
@@ -135,39 +128,3 @@ class RetrievalService:
             results=results,
             answer=generator.answer(query, results),
         )
-
-    def _build(self, name: str) -> Retriever:
-        if name == "bm25":
-            return BM25Retriever(self.corpus)
-        if name == "dense":
-            return DenseRetriever(self.corpus, self._shared_encoder())
-
-        if name == "hybrid":
-            # Built through the cache, so selecting hybrid after dense reuses the
-            # embeddings rather than computing them a second time.
-            return HybridRetriever([self.retriever("bm25"), self.retriever("dense")])
-
-        from ..reranking import RerankingRetriever
-
-        return RerankingRetriever(
-            self.retriever("hybrid"),
-            self._reranker_factory(),  # type: ignore[arg-type]
-        )
-
-    def _shared_encoder(self) -> TextEncoder:
-        """One encoder for the whole service; loading a second would double the memory."""
-        if self._encoder is None:
-            self._encoder = self._encoder_factory()
-        return self._encoder
-
-
-def _default_encoder() -> TextEncoder:
-    from ..retrieval import SentenceTransformerEncoder
-
-    return SentenceTransformerEncoder()
-
-
-def _default_reranker() -> object:
-    from ..reranking import CrossEncoderReranker
-
-    return CrossEncoderReranker()
