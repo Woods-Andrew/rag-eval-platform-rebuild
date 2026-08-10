@@ -22,6 +22,7 @@ relevance labels.
 - [Chunking strategies](#chunking-strategies)
 - [Retrieval methods](#retrieval-methods)
 - [Evaluation methodology](#evaluation-methodology)
+- [Grounded generation](#grounded-generation)
 - [Benchmark dataset](#benchmark-dataset)
 - [Results](#results)
 - [Installation](#installation)
@@ -200,6 +201,37 @@ doing exactly what a reranker is supposed to do — reordering an already-adequa
 Relevance is binary in the initial implementation, which is the honest choice for a
 hand-labeled benchmark of this size; graded relevance is left as future work.
 
+## Grounded generation
+
+Generation is the last stage and the least trusted one. It consumes passages the retriever
+already selected and never triggers or widens a search of its own — if it could, Recall@K
+would stop describing what the answer was actually built from.
+
+Passages are handed to the model numbered, each carrying its own provenance, and the model
+is required to cite the marker supporting each claim. Retrieval *scores* are deliberately
+withheld: a score is a within-retriever artifact that means nothing to a language model, and
+showing it invites treating rank as truth. The ranking's job was to select the evidence, not
+to weigh it.
+
+Two mechanisms do the real work:
+
+**Refusal.** When retrieval returns nothing, the model is never called at all — there is
+nothing to ground an answer in, and asking anyway only buys an unsourced answer. When the
+passages are present but do not answer the question, the model replies with a sentinel token
+rather than a phrase, because "I don't have enough information" has a hundred paraphrases and
+detecting refusal by fuzzy matching would eventually misread a real answer containing a hedge.
+
+**Unresolved citations.** A marker the model invented is reported, not dropped. Silently
+discarding `[9]` when only three passages were supplied would turn a hallucinated citation
+into an answer that merely looks lightly sourced — so `ask` prints a warning and exits
+non-zero. An answer is only `is_grounded` when it cites at least one real passage and invents
+none.
+
+The Anthropic client is a single `urllib` POST rather than an SDK, for the same reason there
+is no vector database here: it is one endpoint, and writing it out keeps the dependency list
+honest and the mechanics visible. No streaming, no retries, no pooling — none of which matter
+behind a retriever that costs more than the request does.
+
 ## Benchmark dataset
 
 The loading, validation, and evaluation machinery is implemented. **The labelled dataset
@@ -295,6 +327,17 @@ import happens only when a strategy that needs it is requested.
 it still runs, reporting chunk-count and chunk-size distribution — the half of a chunking
 experiment that needs no relevance labels. Attach a benchmark and it scores retrieval too.
 
+```bash
+# Answer a question from retrieved evidence, with page-level citations
+export ANTHROPIC_API_KEY=...
+python -m rag_eval ask data/documents/paper.pdf "how are missing modalities handled?"
+python -m rag_eval ask data/documents/paper.pdf "what is the ablation result?" \
+    -r reranked -k 8 --show-evidence
+```
+
+`ask` exits non-zero if the answer cites a passage that was never supplied. It defaults to
+hybrid retrieval; every other strategy is available through the same `--retriever` flag.
+
 The Streamlit interface arrives at its own milestone.
 
 ## Tests
@@ -331,7 +374,7 @@ src/rag_eval/
 ├── reranking/     cross-encoder
 ├── evaluation/    Recall@K, nDCG@K, benchmark runner
 ├── experiments/   chunking sweeps and result reporting
-└── generation/    grounded answers, citations
+└── generation/    grounded answers, citations, refusal
 
 tests/          unit tests (offline, deterministic)
 data/           documents (gitignored) + benchmark labels (version controlled)
@@ -359,7 +402,7 @@ Directories appear as the milestones that need them land, rather than as empty s
 - [x] Cross-encoder reranking
 - [x] Chunking strategy experiment harness
 - [ ] Chunking strategy results — needs labelled documents
-- [ ] Grounded generation with page-level citations
+- [x] Grounded generation with page-level citations
 - [ ] Streamlit interface and evaluation dashboard
 
 ## Limitations
