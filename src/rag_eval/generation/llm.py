@@ -15,7 +15,7 @@ __all__ = [
     "LanguageModel",
 ]
 
-DEFAULT_GENERATION_MODEL = "claude-sonnet-5"
+DEFAULT_GENERATION_MODEL = "claude-sonnet-4-6"
 
 _API_URL = "https://api.anthropic.com/v1/messages"
 _API_VERSION = "2023-06-01"
